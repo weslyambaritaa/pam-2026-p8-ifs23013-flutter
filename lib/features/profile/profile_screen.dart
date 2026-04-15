@@ -1,6 +1,7 @@
 // lib/features/profile/profile_screen.dart
 
 import 'dart:io';
+import 'dart:typed_data'; // Tambahkan ini untuk Uint8List
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -36,6 +37,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _showNewPass    = false;
   bool _showConfPass   = false;
 
+  // ── Photo State ─────────────────────
+  Uint8List? _selectedImageBytes;
+  bool _isUploadingPhoto = false;
+
   @override
   void initState() {
     super.initState();
@@ -63,7 +68,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           source: source, imageQuality: 80, maxWidth: 512);
       if (picked == null || !mounted) return;
 
+      // Baca file sebagai byte (berlaku aman di Web maupun Mobile)
       final bytes = await picked.readAsBytes();
+
+      setState(() {
+        _selectedImageBytes = bytes;
+        _isUploadingPhoto = true; // Tampilkan loading overlay
+      });
+
       final success = await context.read<AuthProvider>().updatePhoto(
         imageFile:     kIsWeb ? null : File(picked.path),
         imageBytes:    bytes,
@@ -71,6 +83,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       if (!mounted) return;
+
+      setState(() {
+        _isUploadingPhoto = false; // Sembunyikan loading overlay
+      });
+
       showAppSnackBar(
         context,
         message: success ? 'Foto profil diperbarui.' : context.read<AuthProvider>().errorMessage,
@@ -221,16 +238,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               children: [
                 GestureDetector(
-                  onTap: _pickPhoto,
+                  onTap: _isUploadingPhoto ? null : _pickPhoto,
                   child: Stack(
+                    alignment: Alignment.center,
                     children: [
+                      // Lingkaran Foto Profil
                       CircleAvatar(
                         radius: 54,
                         backgroundColor: colorScheme.primaryContainer,
-                        backgroundImage: user?.urlPhoto != null
-                            ? NetworkImage(user!.urlPhoto!)
-                            : null,
-                        child: user?.urlPhoto == null
+                        // Prioritaskan gambar lokal (MemoryImage) jika baru dipilih,
+                        // jika tidak, gunakan URL dari NetworkImage
+                        backgroundImage: _selectedImageBytes != null
+                            ? MemoryImage(_selectedImageBytes!) as ImageProvider
+                            : (user?.urlPhoto != null ? NetworkImage(user!.urlPhoto!) : null),
+                        child: (_selectedImageBytes == null && user?.urlPhoto == null)
                             ? Text(
                           (user?.name.isNotEmpty == true)
                               ? user!.name[0].toUpperCase()
@@ -242,6 +263,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         )
                             : null,
                       ),
+
+                      // Indikator Loading di atas foto jika sedang upload
+                      if (_isUploadingPhoto)
+                        Container(
+                          width: 108, // 2 * radius (54)
+                          height: 108,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.5),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(color: Colors.white),
+                          ),
+                        ),
+
+                      // Ikon Kamera
                       Positioned(
                         bottom: 0,
                         right: 0,

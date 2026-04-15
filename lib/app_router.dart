@@ -1,4 +1,3 @@
-
 // lib/app_router.dart
 
 import 'package:flutter/material.dart';
@@ -24,13 +23,18 @@ GoRouter buildRouter(BuildContext context) {
     initialLocation: RouteConstants.login,
     redirect: (ctx, state) {
       final auth = ctx.read<AuthProvider>();
-      final isAuth = auth.isAuthenticated;
+
+      // PERBAIKAN: Gunakan authToken sebagai penentu utama apakah user
+      // boleh mengakses halaman beranda/profil. Ini mencegah user tertendang
+      // ke halaman login saat status AuthProvider berubah menjadi 'loading'.
+      final hasToken = auth.authToken != null;
+
       final loc = state.matchedLocation;
       final isOnAuth = loc == RouteConstants.login || loc == RouteConstants.register;
 
       if (auth.status == AuthStatus.initial) return null;
-      if (!isAuth && !isOnAuth) return RouteConstants.login;
-      if (isAuth && isOnAuth) return RouteConstants.home;
+      if (!hasToken && !isOnAuth) return RouteConstants.login;
+      if (hasToken && isOnAuth) return RouteConstants.home;
       return null;
     },
     refreshListenable: context.read<AuthProvider>(),
