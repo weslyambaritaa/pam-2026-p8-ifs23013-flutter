@@ -22,26 +22,49 @@ class TodoService {
   };
 
   // ─────────────────────────────────────────────
-  // GET /todos?search=
+  // GET /todos?search=&page=&perPage=
   // ─────────────────────────────────────────────
   Future<ApiResponse<List<TodoModel>>> getTodos({
     required String authToken,
     String search = '',
+    int page = 1,
+    int perPage = 10,
   }) async {
-    final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.todos}')
-        .replace(queryParameters: search.isNotEmpty ? {'search': search} : null);
+    // Menyiapkan query parameter untuk paginasi dan pencarian
+    final Map<String, String> queryParams = {
+      'page': page.toString(),
+      'perPage': perPage.toString(),
+    };
 
-    final response = await _client.get(uri, headers: _authHeader(authToken));
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-
-    if (response.statusCode == 200) {
-      final data = body['data'] as Map<String, dynamic>;
-      final list = (data['todos'] as List<dynamic>)
-          .map((e) => TodoModel.fromJson(e as Map<String, dynamic>))
-          .toList();
-      return ApiResponse(success: true, message: body['message'] as String, data: list);
+    if (search.isNotEmpty) {
+      queryParams['search'] = search;
     }
-    return ApiResponse(success: false, message: _parseError(response));
+
+    final uri = Uri.parse('${ApiConstants.baseUrl}${ApiConstants.todos}')
+        .replace(queryParameters: queryParams);
+
+    try {
+      final response = await _client.get(uri, headers: _authHeader(authToken));
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200) {
+        final data = body['data'] as Map<String, dynamic>;
+        final list = (data['todos'] as List<dynamic>)
+            .map((e) => TodoModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return ApiResponse(
+            success: true,
+            message: body['message'] as String,
+            data: list
+        );
+      }
+      return ApiResponse(success: false, message: _parseError(response));
+    } catch (e) {
+      return ApiResponse(
+        success: false,
+        message: 'Terjadi kesalahan koneksi: $e',
+      );
+    }
   }
 
   // ─────────────────────────────────────────────
