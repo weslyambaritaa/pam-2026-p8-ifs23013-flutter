@@ -11,7 +11,6 @@ import '../../shared/widgets/error_widget.dart';
 import '../../shared/widgets/loading_widget.dart';
 import '../../shared/widgets/top_app_bar_widget.dart';
 
-// Enum untuk status filter
 enum TodoFilter { all, done, pending }
 
 class TodosScreen extends StatefulWidget {
@@ -22,31 +21,26 @@ class TodosScreen extends StatefulWidget {
 }
 
 class _TodosScreenState extends State<TodosScreen> {
-  // State untuk filter dan scroll
   TodoFilter _currentFilter = TodoFilter.all;
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    // Tambahkan listener untuk mendeteksi scroll mentok ke bawah
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
 
   @override
   void dispose() {
-    // Pastikan membuang controller untuk mencegah memory leak
     _scrollController.dispose();
     super.dispose();
   }
 
   void _onScroll() {
-    // Cek apakah scroll sudah mencapai 90% dari total panjang konten bawah
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9) {
       final token = context.read<AuthProvider>().authToken;
       if (token != null) {
-        // Panggil loadTodos untuk memuat data selanjutnya (tanpa mereset list)
         context.read<TodoProvider>().loadTodos(authToken: token, isRefresh: false);
       }
     }
@@ -55,7 +49,6 @@ class _TodosScreenState extends State<TodosScreen> {
   void _loadData() {
     final token = context.read<AuthProvider>().authToken;
     if (token != null) {
-      // Memuat ulang data dari halaman 1
       context.read<TodoProvider>().loadTodos(authToken: token, isRefresh: true);
     }
   }
@@ -64,8 +57,8 @@ class _TodosScreenState extends State<TodosScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<TodoProvider>();
     final token    = context.read<AuthProvider>().authToken ?? '';
+    final colorScheme = Theme.of(context).colorScheme;
 
-    // Logika filter lokal berdasarkan state UI
     var displayTodos = provider.todos;
     if (_currentFilter == TodoFilter.done) {
       displayTodos = displayTodos.where((t) => t.isDone).toList();
@@ -74,6 +67,7 @@ class _TodosScreenState extends State<TodosScreen> {
     }
 
     return Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: TopAppBarWidget(
         title: 'Todo Saya',
         withSearch: true,
@@ -83,15 +77,18 @@ class _TodosScreenState extends State<TodosScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         onPressed: () => context
             .push(RouteConstants.todosAdd)
             .then((_) => _loadData()),
-        icon: const Icon(Icons.add),
-        label: const Text('Tambah'),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Tambah Todo', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: RefreshIndicator(
         onRefresh: () async => _loadData(),
-        // Jika sedang initial loading dan data kosong, tampilkan layar loading
         child: (provider.status == TodoStatus.loading || provider.status == TodoStatus.initial) && provider.todos.isEmpty
             ? const LoadingWidget(message: 'Memuat todo...')
             : (provider.status == TodoStatus.error && provider.todos.isEmpty)
@@ -100,23 +97,14 @@ class _TodosScreenState extends State<TodosScreen> {
           children: [
             // ── Filter SegmentedButton ──
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
               child: SizedBox(
                 width: double.infinity,
                 child: SegmentedButton<TodoFilter>(
                   segments: const [
-                    ButtonSegment(
-                      value: TodoFilter.all,
-                      label: Text('Semua'),
-                    ),
-                    ButtonSegment(
-                      value: TodoFilter.done,
-                      label: Text('Selesai'),
-                    ),
-                    ButtonSegment(
-                      value: TodoFilter.pending,
-                      label: Text('Belum'),
-                    ),
+                    ButtonSegment(value: TodoFilter.all, label: Text('Semua')),
+                    ButtonSegment(value: TodoFilter.done, label: Text('Selesai')),
+                    ButtonSegment(value: TodoFilter.pending, label: Text('Belum')),
                   ],
                   selected: {_currentFilter},
                   onSelectionChanged: (Set<TodoFilter> newSelection) {
@@ -135,33 +123,44 @@ class _TodosScreenState extends State<TodosScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.inbox_outlined,
-                        size: 64,
-                        color: Theme.of(context).colorScheme.outline),
-                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer.withOpacity(0.3),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.inbox_rounded,
+                          size: 64,
+                          color: colorScheme.primary.withOpacity(0.7)),
+                    ),
+                    const SizedBox(height: 24),
                     Text(
                       _currentFilter == TodoFilter.all
-                          ? 'Belum ada todo.\nKetuk + untuk menambahkan.'
-                          : 'Tidak ada todo yang sesuai dengan filter ini.',
+                          ? 'Belum ada todo hari ini.'
+                          : 'Pencarian tidak ditemukan.',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _currentFilter == TodoFilter.all
+                          ? 'Ketuk tombol + di bawah untuk memulai.'
+                          : 'Coba ubah kata kunci atau filter.',
+                      style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6)),
+                    )
                   ],
                 ),
               )
                   : ListView.separated(
-                controller: _scrollController, // Pasang controller untuk paginasi
-                padding: const EdgeInsets.all(16),
-                // Tambah 1 item slot di paling bawah jika masih ada data (hasMore)
+                controller: _scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 100), // Padding bawah utk FAB
                 itemCount: displayTodos.length + (provider.hasMore ? 1 : 0),
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (_, i) {
-                  // Jika index mencapai panjang data displayTodos, tampilkan indikator loading
                   if (i == displayTodos.length) {
                     return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: CircularProgressIndicator()),
                     );
                   }
 
@@ -210,32 +209,69 @@ class _TodoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Card(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+          color: todo.isDone ? (isDark ? Colors.green.withOpacity(0.05) : Colors.green.shade50) : Theme.of(context).cardTheme.color,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: todo.isDone ? Colors.green.withOpacity(0.3) : colorScheme.outlineVariant.withOpacity(0.5),
+          ),
+          boxShadow: [
+            if (!todo.isDone)
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.1 : 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              )
+          ]
+      ),
       child: ListTile(
         onTap: onTap,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: GestureDetector(
           onTap: onToggle,
-          child: Icon(
-            todo.isDone
-                ? Icons.check_circle_rounded
-                : Icons.radio_button_unchecked_rounded,
-            color: todo.isDone ? Colors.green : colorScheme.outline,
-            size: 28,
+          child: Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: todo.isDone ? Colors.green : Colors.transparent,
+                border: Border.all(
+                    color: todo.isDone ? Colors.green : colorScheme.outline,
+                    width: 2
+                )
+            ),
+            child: Icon(
+              Icons.check_rounded,
+              color: todo.isDone ? Colors.white : Colors.transparent,
+              size: 20,
+            ),
           ),
         ),
         title: Text(
           todo.title,
           style: TextStyle(
             decoration: todo.isDone ? TextDecoration.lineThrough : null,
-            fontWeight: FontWeight.w600,
+            decorationColor: Colors.green,
+            decorationThickness: 2,
+            color: todo.isDone ? colorScheme.onSurface.withOpacity(0.5) : colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
           ),
         ),
-        subtitle: Text(
-          todo.description,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4.0),
+          child: Text(
+              todo.description,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: todo.isDone ? colorScheme.onSurface.withOpacity(0.4) : colorScheme.onSurfaceVariant,
+              )
+          ),
         ),
-        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
       ),
     );
   }

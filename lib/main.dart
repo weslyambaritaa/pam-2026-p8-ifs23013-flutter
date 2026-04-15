@@ -2,17 +2,24 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Tambahkan import ini
 import 'app_router.dart';
 import 'providers/auth_provider.dart';
 import 'providers/todo_provider.dart';
 import 'providers/theme_provider.dart';
 
-void main() {
+// Ubah main menjadi async
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Ambil instance SharedPreferences sebelum aplikasi berjalan
+  final prefs = await SharedPreferences.getInstance();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        // Masukkan prefs ke dalam ThemeProvider
+        ChangeNotifierProvider(create: (_) => ThemeProvider(prefs)),
         ChangeNotifierProvider(create: (_) => AuthProvider()..init()),
         ChangeNotifierProvider(create: (_) => TodoProvider()),
       ],
@@ -33,26 +40,15 @@ class _DelcomTodosAppState extends State<DelcomTodosApp> {
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = context.watch<ThemeProvider>().themeMode;
+    final themeProvider = context.watch<ThemeProvider>();
 
     return MaterialApp.router(
       title: 'Delcom Todos',
       debugShowCheckedModeBanner: false,
-      themeMode: themeMode,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2196F3),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4CAF50),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      // Terapkan mode tema dan properti temanya
+      themeMode: themeProvider.themeMode,
+      theme: themeProvider.lightTheme,
+      darkTheme: themeProvider.darkTheme,
       routerConfig: _router,
     );
   }
