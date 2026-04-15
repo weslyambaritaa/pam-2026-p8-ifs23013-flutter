@@ -11,6 +11,9 @@ import '../../shared/widgets/error_widget.dart';
 import '../../shared/widgets/loading_widget.dart';
 import '../../shared/widgets/top_app_bar_widget.dart';
 
+// Enum untuk status filter
+enum TodoFilter { all, done, pending }
+
 class TodosScreen extends StatefulWidget {
   const TodosScreen({super.key});
 
@@ -19,6 +22,9 @@ class TodosScreen extends StatefulWidget {
 }
 
 class _TodosScreenState extends State<TodosScreen> {
+  // State untuk menyimpan filter yang sedang aktif
+  TodoFilter _currentFilter = TodoFilter.all;
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +40,14 @@ class _TodosScreenState extends State<TodosScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<TodoProvider>();
     final token    = context.read<AuthProvider>().authToken ?? '';
+
+    // Logika filter lokal berdasarkan state UI
+    var displayTodos = provider.todos;
+    if (_currentFilter == TodoFilter.done) {
+      displayTodos = displayTodos.where((t) => t.isDone).toList();
+    } else if (_currentFilter == TodoFilter.pending) {
+      displayTodos = displayTodos.where((t) => !t.isDone).toList();
+    }
 
     return Scaffold(
       appBar: TopAppBarWidget(
@@ -58,49 +72,88 @@ class _TodosScreenState extends State<TodosScreen> {
           const LoadingWidget(message: 'Memuat todo...'),
           TodoStatus.error =>
               AppErrorWidget(message: provider.errorMessage, onRetry: _loadData),
-          _ => provider.todos.isEmpty
-              ? Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.inbox_outlined,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.outline),
-                const SizedBox(height: 16),
-                const Text(
-                  'Belum ada todo.\nKetuk + untuk menambahkan.',
-                  textAlign: TextAlign.center,
+          _ => Column(
+            children: [
+              // ── Filter SegmentedButton ──
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<TodoFilter>(
+                    segments: const [
+                      ButtonSegment(
+                        value: TodoFilter.all,
+                        label: Text('Semua'),
+                      ),
+                      ButtonSegment(
+                        value: TodoFilter.done,
+                        label: Text('Selesai'),
+                      ),
+                      ButtonSegment(
+                        value: TodoFilter.pending,
+                        label: Text('Belum'),
+                      ),
+                    ],
+                    selected: {_currentFilter},
+                    onSelectionChanged: (Set<TodoFilter> newSelection) {
+                      setState(() {
+                        _currentFilter = newSelection.first;
+                      });
+                    },
+                  ),
                 ),
-              ],
-            ),
-          )
-              : ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: provider.todos.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) {
-              final todo = provider.todos[i];
-              return _TodoCard(
-                todo: todo,
-                onTap: () => context
-                    .push(RouteConstants.todosDetail(todo.id))
-                    .then((_) => _loadData()),
-                onToggle: () async {
-                  final success = await provider.editTodo(
-                    authToken:   token,
-                    todoId:      todo.id,
-                    title:       todo.title,
-                    description: todo.description,
-                    isDone:      !todo.isDone,
-                  );
-                  if (!success && mounted) {
-                    showAppSnackBar(context,
-                        message: provider.errorMessage,
-                        type: SnackBarType.error);
-                  }
-                },
-              );
-            },
+              ),
+
+              // ── Daftar Todo ──
+              Expanded(
+                child: displayTodos.isEmpty
+                    ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.inbox_outlined,
+                          size: 64,
+                          color: Theme.of(context).colorScheme.outline),
+                      const SizedBox(height: 16),
+                      Text(
+                        _currentFilter == TodoFilter.all
+                            ? 'Belum ada todo.\nKetuk + untuk menambahkan.'
+                            : 'Tidak ada todo yang sesuai dengan filter ini.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                )
+                    : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: displayTodos.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (_, i) {
+                    final todo = displayTodos[i];
+                    return _TodoCard(
+                      todo: todo,
+                      onTap: () => context
+                          .push(RouteConstants.todosDetail(todo.id))
+                          .then((_) => _loadData()),
+                      onToggle: () async {
+                        final success = await provider.editTodo(
+                          authToken:   token,
+                          todoId:      todo.id,
+                          title:       todo.title,
+                          description: todo.description,
+                          isDone:      !todo.isDone,
+                        );
+                        if (!success && mounted) {
+                          showAppSnackBar(context,
+                              message: provider.errorMessage,
+                              type: SnackBarType.error);
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         },
       ),
@@ -115,7 +168,7 @@ class _TodoCard extends StatelessWidget {
     required this.onToggle,
   });
 
-  final todo;
+  final todo; // Menggunakan tipe dynamic/var karena tidak mengimport model secara eksplisit
   final VoidCallback onTap;
   final VoidCallback onToggle;
 

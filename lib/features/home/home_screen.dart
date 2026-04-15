@@ -35,6 +35,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final themeProvider = context.watch<ThemeProvider>();
     final isDark       = themeProvider.isDark;
 
+    // Kalkulasi Data & Persentase
+    final total = provider.totalTodos;
+    final done = provider.doneTodos;
+    final pending = provider.pendingTodos;
+
+    final donePercent = total == 0 ? 0.0 : (done / total);
+    final pendingPercent = total == 0 ? 0.0 : (pending / total);
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -70,30 +78,90 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // ── Statistik ──
+            // ── Statistik Card ──
             Row(
               children: [
                 _StatCard(
                   label: 'Total',
-                  value: provider.totalTodos,
+                  value: total,
                   color: colorScheme.primary,
                   icon: Icons.list_alt_rounded,
                 ),
                 const SizedBox(width: 12),
                 _StatCard(
                   label: 'Selesai',
-                  value: provider.doneTodos,
+                  value: done,
                   color: Colors.green,
                   icon: Icons.check_circle_rounded,
                 ),
                 const SizedBox(width: 12),
                 _StatCard(
                   label: 'Belum',
-                  value: provider.pendingTodos,
+                  value: pending,
                   color: Colors.orange,
                   icon: Icons.pending_rounded,
                 ),
               ],
+            ),
+            const SizedBox(height: 24),
+
+            // ── Indikator Progres ──
+            Text(
+              'Progres Todo',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Bar Selesai
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Selesai',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        Text('${(donePercent * 100).toStringAsFixed(1)}%'),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      value: donePercent,
+                      backgroundColor: Colors.green.withOpacity(0.2),
+                      color: Colors.green,
+                      minHeight: 8,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Bar Belum Selesai
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Belum Selesai',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        Text('${(pendingPercent * 100).toStringAsFixed(1)}%'),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      value: pendingPercent,
+                      backgroundColor: Colors.orange.withOpacity(0.2),
+                      color: Colors.orange,
+                      minHeight: 8,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 24),
 
